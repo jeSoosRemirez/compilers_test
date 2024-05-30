@@ -81,6 +81,7 @@ using utils::nl;
 
 %token <Symbol> ID "id"
 %token <Symbol> STRING "string"
+%token <int> INT "integer"
 
 // Declare the nonterminals types
 
@@ -89,8 +90,8 @@ using utils::nl;
 %type <std::vector<VarDecl *>> params nonemptyparams;
 %type <Decl *> decl funcDecl varDecl;
 %type <std::vector<Decl *>> decls;
-%type <Expr *> expr stringExpr seqExpr callExpr opExpr negExpr
-            assignExpr whileExpr forExpr breakExpr letExpr var;
+%type <Expr *> expr stringExpr intExpr seqExpr callExpr opExpr negExpr
+            assignExpr ifExpr whileExpr forExpr breakExpr letExpr var;
 
 %type <std::vector<Expr *>> exprs nonemptyexprs;
 %type <std::vector<Expr *>> arguments nonemptyarguments;
@@ -104,6 +105,8 @@ using utils::nl;
 // Declare precedence rules
 
 %nonassoc FUNCTION VAR TYPE DO OF ASSIGN;
+%left PLUS MINUS;
+%left TIMES DIVIDE;
 %left UMINUS;
 
 // Declare grammar rules and production actions
@@ -118,12 +121,14 @@ decl: varDecl { $$ = $1; }
 ;
 
 expr: stringExpr { $$ = $1; }
+   | intExpr { $$ = $1; }  
    | seqExpr { $$ = $1; }
    | var { $$ = $1; }
    | callExpr { $$ = $1; }
    | opExpr { $$ = $1; }
    | negExpr { $$ = $1; }
    | assignExpr { $$ = $1; }
+   | ifExpr { $$ = $1; }
    | whileExpr { $$ = $1; }
    | forExpr { $$ = $1; }
    | breakExpr { $$ = $1; }
@@ -146,6 +151,10 @@ stringExpr: STRING
 
 var : ID
   { $$ = new Identifier(@1, $1); }
+;
+
+intExpr: INT
+  { $$ = new IntegerLiteral(@1, $1); }
 ;
 
 callExpr: ID LPAREN arguments RPAREN
@@ -174,11 +183,20 @@ opExpr: expr PLUS expr   { $$ = new BinaryOperator(@2, $1, $3, o_plus); }
                             new IfThenElse(@3, $3, new IntegerLiteral(nl, 1), new IntegerLiteral(nl, 0)),
                             new IntegerLiteral(nl, 0));
       }
+      | expr OR expr    {
+        $$ = new IfThenElse(@2, $1,
+                            new IntegerLiteral(nl, 1),
+                            new IfThenElse(@3, $3, new IntegerLiteral(nl, 1), new IntegerLiteral(nl, 0)));
+      }
 ;
 
 
 assignExpr: ID ASSIGN expr
   { $$ = new Assign(@2, new Identifier(@1, $1), $3); }
+;
+
+ifExpr: IF expr THEN expr ELSE expr { $$ = new IfThenElse(@1, $2, $4, $6); } 
+  | IF expr THEN expr { $$ = new IfThenElse(@1, $2, $4, new Sequence(@4, std::vector<Expr *>())); } 
 ;
 
 whileExpr: WHILE expr DO expr { $$ = new WhileLoop(@1, $2, $4); }
